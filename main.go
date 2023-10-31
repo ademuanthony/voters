@@ -146,7 +146,8 @@ func main() {
 }
 
 func getTickets() (*TicketsResponse, error) {
-	cmd := exec.Command(dcrctl, "gettickets", "true")
+	args := append(dcrctlArgs, "gettickets", "true")
+	cmd := exec.Command(dcrctl, args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
