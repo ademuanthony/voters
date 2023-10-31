@@ -22,6 +22,10 @@ type TicketsResponse struct {
 }
 
 const dcrctl = "./dcrctl.sh"
+
+// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf"}
+var dcrctlArgs = []string{}
+
 const salt = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
 
 func main() {
@@ -245,10 +249,12 @@ func calculatePolicy(policyTable table.Table, ticketHash, salt string, yesZone, 
 
 func setTspendPolicy(tspendOrPolicyKey, ticketHash, policy string) {
 	if len(tspendOrPolicyKey) == 32 {
-		cmd := exec.Command(dcrctl, "settspendpolicy", tspendOrPolicyKey, policy, ticketHash)
+		dcrctlArgs = append(dcrctlArgs, "settspendpolicy", tspendOrPolicyKey, policy, ticketHash)
+		cmd := exec.Command(dcrctl, dcrctlArgs...)
 		cmd.Run()
 	} else {
-		cmd := exec.Command(dcrctl, "settreasurypolicy", tspendOrPolicyKey, policy, ticketHash)
+		dcrctlArgs = append(dcrctlArgs, "settreasurypolicy", tspendOrPolicyKey, policy, ticketHash)
+		cmd := exec.Command(dcrctl, dcrctlArgs...)
 		cmd.Run()
 	}
 }
