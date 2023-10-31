@@ -21,10 +21,11 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-const dcrctl = "./dcrctl.sh"
+const dcrctl = "/home/user/code/dcrctl/dcrctl"
+// const dcrctl = "./dcrctl.sh"
 
-// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf"}
-var dcrctlArgs = []string{}
+var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf"}
+// var dcrctlArgs = []string{}
 
 const salt = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
 
