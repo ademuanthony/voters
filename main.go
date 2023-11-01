@@ -24,16 +24,21 @@ type TicketsResponse struct {
 const dcrctl = "/home/user/code/dcrctl/dcrctl"
 // const dcrctl = "./dcrctl.sh"
 
-var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf"}
+var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
 // var dcrctlArgs = []string{}
 
-const salt = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
+const (
+	salt = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
+	tspendOrPolicyKey = "03f6e7041f1cf51ee10e0a01cd2b0385ce3cd9debaabb2296f7e9dee9329da946c"
+	verbose = true
+	repeatInterval = 1280 * time.Minute
+)
 
 func main() {
 	fmt.Println()
-	if len(os.Args) != 4 && len(os.Args) != 5 {
+	if len(os.Args) != 3 {
 		fmt.Println("Invalid number of arguments. Expected 4 or 5 but got ", len(os.Args))
-		fmt.Println("Usage: ./voters <Treasury Transaction Hash or Policy Key> <Yes Percentage> <No Percentage> <Verbose>")
+		fmt.Println("Usage: ./voters <Yes Percentage> <No Percentage>")
 		os.Exit(1)
 	}
 
@@ -50,16 +55,9 @@ func main() {
 		os.Exit(0)
 	}()
 
-	tspendOrPolicyKey := os.Args[1]
-	yesZone := parsePercentage(os.Args[2])
-	noZone := parsePercentage(os.Args[3])
+	yesZone := parsePercentage(os.Args[1])
+	noZone := parsePercentage(os.Args[2])
 	absZone := 100 - yesZone - noZone
-
-	var verbose bool
-
-	if len(os.Args) == 5 {
-		verbose = os.Args[4] == "true"
-	}
 
 	if len(tspendOrPolicyKey) == 64 {
 		fmt.Printf("Treasury Transaction Hash: %s\n", tspendOrPolicyKey)
@@ -69,7 +67,6 @@ func main() {
 	fmt.Println()
 
 	assignedTickets := make(map[string]bool)
-	const repeatInterval = 5 * time.Minute
 
 	for {
 		newTickets := getNewTickets(assignedTickets)
@@ -81,8 +78,6 @@ func main() {
 			time.Sleep(repeatInterval)
 			continue
 		}
-
-		newTickets = shuffleStrings(newTickets)
 
 		totalTickets := len(newTickets)
 		var totalYes, totalNo, totalAbstain int
@@ -96,9 +91,9 @@ func main() {
 		policyCounts := make(map[string]int)
 		ticketPolicies := make(map[string]string)
 
-		verbosePolicyTable := table.New("Ticket", "Rand", "Choice")
-		for _, ticketHash := range newTickets {
-			policy := calculatePolicy(verbosePolicyTable, ticketHash, salt, yesZone, noZone, verbose)
+		verbosePolicyTable := table.New("Count", "Ticket", "Rand", "Choice")
+		for i, ticketHash := range newTickets {
+			policy := calculatePolicy(i+1, verbosePolicyTable, ticketHash, salt, yesZone, noZone, verbose)
 			ticketPolicies[ticketHash] = policy
 			policyCounts[policy]++
 
@@ -210,17 +205,7 @@ func formatPolicy(policy string, verbose bool) string {
 	return policy
 }
 
-func shuffleStrings(strings []string) []string {
-	shuffled := make([]string, len(strings))
-	copy(shuffled, strings)
-	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-	return shuffled
-}
-
-func calculatePolicy(policyTable table.Table, ticketHash, salt string, yesZone, noZone float64, verbose bool) string {
+func calculatePolicy(no int, policyTable table.Table, ticketHash, salt string, yesZone, noZone float64, verbose bool) string {
 	data := ticketHash + salt
 	hashed := sha256.Sum256([]byte(data))
 	seed := new(big.Int).SetBytes(hashed[:]).Uint64()
@@ -244,7 +229,7 @@ func calculatePolicy(policyTable table.Table, ticketHash, salt string, yesZone, 
 		fmt.Print(formatPolicy(policy, verbose))
 	}
 
-	policyTable.AddRow(hashPrnt, formatPercentage(determinant), formatPolicy(policy, verbose))
+	policyTable.AddRow(no, hashPrnt, formatPercentage(determinant), formatPolicy(policy, verbose))
 
 	return policy
 }
