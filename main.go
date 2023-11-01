@@ -21,28 +21,31 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-const dcrctl = "/home/user/code/dcrctl/dcrctl"
-// const dcrctl = "./dcrctl.sh"
+// const dcrctl = "/home/user/code/dcrctl/dcrctl"
+const dcrctl = "./dcrctl.sh"
 
-var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
-// var dcrctlArgs = []string{}
+// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+var dcrctlArgs = []string{}
 
 const (
-	salt = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
+	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
 	tspendOrPolicyKey = "03f6e7041f1cf51ee10e0a01cd2b0385ce3cd9debaabb2296f7e9dee9329da946c"
-	verbose = true
-	repeatInterval = 1280 * time.Minute
+	verbose           = true
+	repeatInterval    = 1280 * time.Minute
 )
 
 func main() {
 	fmt.Println()
+
+	fmt.Printf("- Treasury Voter v1.0.0 (2023-11-01), will run every %v.\n\n", repeatInterval)
+
 	if len(os.Args) != 3 {
-		fmt.Println("Invalid number of arguments. Expected 4 or 5 but got ", len(os.Args))
+		fmt.Println("Invalid number of arguments. Expected 2 but got ", len(os.Args))
 		fmt.Println("Usage: ./voters <Yes Percentage> <No Percentage>")
 		os.Exit(1)
 	}
 
-	fmt.Println("Starting...")
+	// fmt.Println("Starting...")
 
 	// Create a channel to listen for Ctrl+C (interrupt) signals
 	interrupt := make(chan os.Signal, 1)
@@ -59,17 +62,34 @@ func main() {
 	noZone := parsePercentage(os.Args[2])
 	absZone := 100 - yesZone - noZone
 
-	if len(tspendOrPolicyKey) == 64 {
-		fmt.Printf("Treasury Transaction Hash: %s\n", tspendOrPolicyKey)
-	} else {
-		fmt.Printf("Policy Key: %s\n", tspendOrPolicyKey)
-	}
-	fmt.Println()
+	// if len(tspendOrPolicyKey) == 64 {
+	// 	fmt.Printf("Treasury Transaction Hash: %s\n", tspendOrPolicyKey)
+	// } else {
+	// 	fmt.Printf("Policy Key: %s\n", tspendOrPolicyKey)
+	// }
+	// fmt.Println()
 
 	assignedTickets := make(map[string]bool)
 
+	round := 1
+
 	for {
+		fmt.Printf("***** ROUND %d *****  politeiakey %s (dev note: substitute tspend here if applicable)\n", round, tspendOrPolicyKey)
+		fmt.Printf(
+			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100",
+			formatPercentage(yesZone),
+			formatPercentage(noZone),
+			formatPercentage(absZone),
+			formatPercentage(yesZone),
+			formatPercentage(yesZone),
+			formatPercentage(yesZone+noZone),
+			formatPercentage(yesZone+noZone),
+		)
+		startGetTicketTime := time.Now()
+		fmt.Printf("- get tickets... ")
 		newTickets := getNewTickets(assignedTickets)
+		fmt.Printf("got %d tickets completed in %v.\n", len(newTickets), time.Since(startGetTicketTime))
+
 		if len(newTickets) > 0 {
 			for _, ticketHash := range newTickets {
 				assignedTickets[ticketHash] = true
@@ -82,6 +102,7 @@ func main() {
 		totalTickets := len(newTickets)
 		var totalYes, totalNo, totalAbstain int
 
+		fmt.Println()
 		fmt.Printf("Making random decisions based on  yes 0-%0.f  no %0.f-%0.f  abstain %0.f-100 for %d tickets\n", yesZone, yesZone,
 			yesZone+noZone, yesZone+noZone, totalTickets)
 
@@ -91,7 +112,7 @@ func main() {
 		policyCounts := make(map[string]int)
 		ticketPolicies := make(map[string]string)
 
-		verbosePolicyTable := table.New("Count", "Ticket", "Rand", "Choice")
+		verbosePolicyTable := table.New("Count", "Ticket", "Rand", "Choice", "Symbol")
 		for i, ticketHash := range newTickets {
 			policy := calculatePolicy(i+1, verbosePolicyTable, ticketHash, salt, yesZone, noZone, verbose)
 			ticketPolicies[ticketHash] = policy
@@ -135,6 +156,9 @@ func main() {
 			fmt.Println()
 			fmt.Printf("Checking for tickets every %v\n", repeatInterval)
 		}
+
+		nextRun := time.Now().Add(repeatInterval)
+		fmt.Printf("- sleeping %v, next run at %v...\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
 
 		time.Sleep(repeatInterval)
 	}
@@ -229,7 +253,7 @@ func calculatePolicy(no int, policyTable table.Table, ticketHash, salt string, y
 		fmt.Print(formatPolicy(policy, verbose))
 	}
 
-	policyTable.AddRow(no, hashPrnt, formatPercentage(determinant), formatPolicy(policy, verbose))
+	policyTable.AddRow(no, hashPrnt, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
 
 	return policy
 }
