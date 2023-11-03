@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -22,16 +23,16 @@ type TicketsResponse struct {
 }
 
 // const dcrctl = "/home/user/code/dcrctl/dcrctl"
-const dcrctl = "./dcrctl.sh"
+const dcrctl = "dcrctl"
 
 // var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
-var dcrctlArgs = []string{}
+var dcrctlArgs = []string{"--wallet", "--testnet"}
 
 const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
 	tspendOrPolicyKey = "03f6e7041f1cf51ee10e0a01cd2b0385ce3cd9debaabb2296f7e9dee9329da946c"
 	verbose           = true
-	repeatInterval    = 1280 * time.Minute
+	repeatInterval    = 10 * time.Second
 )
 
 func main() {
@@ -45,16 +46,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// fmt.Println("Starting...")
-
-	// Create a channel to listen for Ctrl+C (interrupt) signals
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	// Start a goroutine to handle interrupt signals
 	go func() {
 		<-interrupt
-		fmt.Println("\nClosing...") // Print when Ctrl+C is pressed
+		fmt.Println("\nClosing...")
 		os.Exit(0)
 	}()
 
@@ -62,19 +59,13 @@ func main() {
 	noZone := parsePercentage(os.Args[2])
 	absZone := 100 - yesZone - noZone
 
-	// if len(tspendOrPolicyKey) == 64 {
-	// 	fmt.Printf("Treasury Transaction Hash: %s\n", tspendOrPolicyKey)
-	// } else {
-	// 	fmt.Printf("Policy Key: %s\n", tspendOrPolicyKey)
-	// }
-	// fmt.Println()
-
 	assignedTickets := make(map[string]bool)
 
 	round := 1
 
 	for {
-		fmt.Printf("***** ROUND %d *****  politeiakey %s (dev note: substitute tspend here if applicable)\n", round, tspendOrPolicyKey)
+		fmt.Printf("***** ROUND %d *****  politeiakey %s\n", round, tspendOrPolicyKey)
+		round++
 		fmt.Printf(
 			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100",
 			formatPercentage(yesZone),
@@ -108,7 +99,6 @@ func main() {
 
 		fmt.Println()
 
-		// Calculate policies and keep track of counts in the first loop
 		policyCounts := make(map[string]int)
 		ticketPolicies := make(map[string]string)
 
@@ -125,7 +115,6 @@ func main() {
 			verbosePolicyTable.Print()
 		}
 
-		// Calculate percentages
 		totalYes += policyCounts["yes"]
 		totalNo += policyCounts["no"]
 		totalAbstain += policyCounts["abstain"]
@@ -152,13 +141,10 @@ func main() {
 		if totalTickets > 0 {
 			fmt.Println()
 			summaryTable.Print()
-
-			fmt.Println()
-			fmt.Printf("Checking for tickets every %v\n", repeatInterval)
 		}
 
 		nextRun := time.Now().Add(repeatInterval)
-		fmt.Printf("- sleeping %v, next run at %v...\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
+		fmt.Printf("- sleeping for %v, next run at %v...\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
 
 		time.Sleep(repeatInterval)
 	}
@@ -167,15 +153,19 @@ func main() {
 func getTickets() (*TicketsResponse, error) {
 	args := append(dcrctlArgs, "gettickets", "true")
 	cmd := exec.Command(dcrctl, args...)
-	output, err := cmd.Output()
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(fmt.Sprint(err) + ": " + stderr.String())
 	}
+
 	var ticketsResponse TicketsResponse
-	err = json.Unmarshal(output, &ticketsResponse)
-	if err != nil {
-		fmt.Println("Error parsing tickets JSON:", err)
-		return nil, err
+	if err := json.Unmarshal(out.Bytes(), &ticketsResponse); err != nil {
+		return nil, fmt.Errorf("error parsing tickets JSON: %w", err)
 	}
 	return &ticketsResponse, nil
 }
@@ -235,10 +225,8 @@ func calculatePolicy(no int, policyTable table.Table, ticketHash, salt string, y
 	seed := new(big.Int).SetBytes(hashed[:]).Uint64()
 	r := rand.New(rand.NewSource(int64(seed)))
 
-	// Generate a determinant number between 0 and 100
 	determinant := r.Float64() * 100
 
-	// Determine the policy based on random value
 	var policy string
 	if determinant <= yesZone {
 		policy = "yes"
@@ -260,12 +248,18 @@ func calculatePolicy(no int, policyTable table.Table, ticketHash, salt string, y
 
 func setTspendPolicy(tspendOrPolicyKey, ticketHash, policy string) {
 	if len(tspendOrPolicyKey) == 32 {
-		dcrctlArgs = append(dcrctlArgs, "settspendpolicy", tspendOrPolicyKey, policy, ticketHash)
-		cmd := exec.Command(dcrctl, dcrctlArgs...)
-		cmd.Run()
+		args := append(dcrctlArgs, "settspendpolicy", tspendOrPolicyKey, policy, ticketHash)
+		cmd := exec.Command(dcrctl, args...)
+		err := cmd.Run()
+		if err != nil {
+			fmt.Println("Error in setting policy", err.Error())
+		}
 	} else {
-		dcrctlArgs = append(dcrctlArgs, "settreasurypolicy", tspendOrPolicyKey, policy, ticketHash)
-		cmd := exec.Command(dcrctl, dcrctlArgs...)
-		cmd.Run()
+		args := append(dcrctlArgs, "settreasurypolicy", tspendOrPolicyKey, policy, ticketHash)
+		cmd := exec.Command(dcrctl, args...)
+		err := cmd.Run()
+		if err != nil {
+			fmt.Println("Error in setting policy", err.Error())
+		}
 	}
 }
