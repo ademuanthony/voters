@@ -22,11 +22,11 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-// const dcrctl = "/home/user/code/dcrctl/dcrctl"
-const dcrctl = "dcrctl"
+const dcrctl = "/home/user/code/dcrctl/dcrctl"
+// const dcrctl = "dcrctl"
 
-// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
-var dcrctlArgs = []string{"--wallet", "--testnet"}
+var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+// var dcrctlArgs = []string{"--wallet", "--testnet"}
 
 const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
