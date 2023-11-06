@@ -22,6 +22,16 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
+type Vote struct {
+	Key string `json:"key"`
+	Ticket string `json:"ticket"`
+	Policy string `json:"policy"`
+}
+
+type VoteResponse struct {
+	Votes []Vote `json:"vote"`
+}
+
 const dcrctl = "/home/user/code/dcrctl/dcrctl"
 // const dcrctl = "dcrctl"
 
@@ -32,7 +42,7 @@ const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
 	tspendOrPolicyKey = "03f6e7041f1cf51ee10e0a01cd2b0385ce3cd9debaabb2296f7e9dee9329da946c"
 	verbose           = true
-	repeatInterval    = 10 * time.Second
+	repeatInterval    = 1280 * time.Minute
 )
 
 func main() {
@@ -67,7 +77,7 @@ func main() {
 		fmt.Printf("***** ROUND %d *****  politeiakey %s\n", round, tspendOrPolicyKey)
 		round++
 		fmt.Printf(
-			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100",
+			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n\n",
 			formatPercentage(yesZone),
 			formatPercentage(noZone),
 			formatPercentage(absZone),
@@ -76,6 +86,19 @@ func main() {
 			formatPercentage(yesZone+noZone),
 			formatPercentage(yesZone+noZone),
 		)
+		fmt.Println("getting tickets removed...")
+		votes, err := getVotes()
+		if err != nil {
+			fmt.Printf("error in getting tickets removed ... %v\n", err)
+		}
+
+		votesTable := table.New("Count", "Ticket", "Choice", "Symbol")
+		for i, vote := range votes {
+			votesTable.AddRow(i+1, vote.Ticket, vote.Policy, formatPolicy(vote.Policy, false))
+		}
+		votesTable.Print()
+		fmt.Println()
+
 		startGetTicketTime := time.Now()
 		fmt.Printf("- get tickets... ")
 		newTickets := getNewTickets(assignedTickets)
@@ -168,6 +191,26 @@ func getTickets() (*TicketsResponse, error) {
 		return nil, fmt.Errorf("error parsing tickets JSON: %w", err)
 	}
 	return &ticketsResponse, nil
+}
+
+func getVotes() ([]Vote, error) {
+	args := append(dcrctlArgs, "treasurypolicy")
+	cmd := exec.Command(dcrctl, args...)
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprint(err) + ": " + stderr.String())
+	}
+
+	var voteResponse []Vote
+	if err := json.Unmarshal(out.Bytes(), &voteResponse); err != nil {
+		return nil, fmt.Errorf("error parsing tickets JSON: %w", err)
+	}
+	return voteResponse, nil
 }
 
 func getNewTickets(assignedTickets map[string]bool) []string {
