@@ -22,20 +22,12 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-type Vote struct {
-	Key string `json:"key"`
-	Ticket string `json:"ticket"`
-	Policy string `json:"policy"`
-}
-
-type VoteResponse struct {
-	Votes []Vote `json:"vote"`
-}
-
 const dcrctl = "/home/user/code/dcrctl/dcrctl"
+
 // const dcrctl = "dcrctl"
 
 var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+
 // var dcrctlArgs = []string{"--wallet", "--testnet"}
 
 const (
@@ -74,7 +66,11 @@ func main() {
 	round := 1
 
 	for {
-		fmt.Printf("***** ROUND %d *****  politeiakey %s\n", round, tspendOrPolicyKey)
+		if len(tspendOrPolicyKey) == 32 {
+			fmt.Printf("***** ROUND %d *****  tspend %s\n", round, tspendOrPolicyKey)
+		} else {
+			fmt.Printf("***** ROUND %d *****  politeiakey %s\n", round, tspendOrPolicyKey)
+		}
 		round++
 		fmt.Printf(
 			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n\n",
@@ -86,23 +82,27 @@ func main() {
 			formatPercentage(yesZone+noZone),
 			formatPercentage(yesZone+noZone),
 		)
-		fmt.Println("getting tickets removed...")
-		votes, err := getVotes()
-		if err != nil {
-			fmt.Printf("error in getting tickets removed ... %v\n", err)
-		}
-
-		votesTable := table.New("Count", "Ticket", "Choice", "Symbol")
-		for i, vote := range votes {
-			votesTable.AddRow(i+1, vote.Ticket, vote.Policy, formatPolicy(vote.Policy, false))
-		}
-		votesTable.Print()
-		fmt.Println()
 
 		startGetTicketTime := time.Now()
 		fmt.Printf("- get tickets... ")
-		newTickets := getNewTickets(assignedTickets)
+		newTickets, removedTickets := getNewTickets(assignedTickets)
 		fmt.Printf("got %d tickets completed in %v.\n", len(newTickets), time.Since(startGetTicketTime))
+
+		if round > 1 {
+			fmt.Println("checking for tickets removed...")
+			
+
+			if len(removedTickets) > 0 {
+				votesTable := table.New("Count", "Ticket")
+				for i, hash := range removedTickets {
+					votesTable.AddRow(i+1, hash)
+				}
+				votesTable.Print()
+				fmt.Println()
+			} else {
+				fmt.Println("nothing found")
+			}
+		}
 
 		if len(newTickets) > 0 {
 			for _, ticketHash := range newTickets {
@@ -125,17 +125,21 @@ func main() {
 		policyCounts := make(map[string]int)
 		ticketPolicies := make(map[string]string)
 
-		verbosePolicyTable := table.New("Count", "Ticket", "Rand", "Choice", "Symbol")
-		for i, ticketHash := range newTickets {
-			policy := calculatePolicy(i+1, verbosePolicyTable, ticketHash, salt, yesZone, noZone, verbose)
-			ticketPolicies[ticketHash] = policy
-			policyCounts[policy]++
+		if len(newTickets) > 0 {
+			verbosePolicyTable := table.New("Count", "Ticket", "Rand", "Choice", "Symbol")
+			for i, ticketHash := range newTickets {
+				policy := calculatePolicy(i+1, verbosePolicyTable, ticketHash, salt, yesZone, noZone, verbose)
+				ticketPolicies[ticketHash] = policy
+				policyCounts[policy]++
 
-			setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
-		}
+				setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
+			}
 
-		if verbose {
-			verbosePolicyTable.Print()
+			if verbose {
+				verbosePolicyTable.Print()
+			}
+		} else {
+			fmt.Println("No new ticket(s) found")
 		}
 
 		totalYes += policyCounts["yes"]
@@ -193,32 +197,29 @@ func getTickets() (*TicketsResponse, error) {
 	return &ticketsResponse, nil
 }
 
-func getVotes() ([]Vote, error) {
-	args := append(dcrctlArgs, "treasurypolicy")
-	cmd := exec.Command(dcrctl, args...)
+var previousTickts []string
 
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprint(err) + ": " + stderr.String())
-	}
-
-	var voteResponse []Vote
-	if err := json.Unmarshal(out.Bytes(), &voteResponse); err != nil {
-		return nil, fmt.Errorf("error parsing tickets JSON: %w", err)
-	}
-	return voteResponse, nil
-}
-
-func getNewTickets(assignedTickets map[string]bool) []string {
+func getNewTickets(assignedTickets map[string]bool) ([]string, []string) {
 	ticketsResponse, err := getTickets()
 	if err != nil {
 		fmt.Println("Error fetching tickets:", err)
-		return []string{}
+		return []string{}, []string{}
 	}
+
+	var allTickets = make(map[string]bool)
+	for _, hash := range ticketsResponse.Hashes {
+		allTickets[hash] = true
+	}
+
+	var removedTickets []string
+	for _, hash := range previousTickts {
+		if _, f := allTickets[hash]; !f {
+			removedTickets = append(removedTickets, hash)
+		}
+	}
+
+	previousTickts = ticketsResponse.Hashes
+
 
 	var newTickets []string
 	for _, ticketHash := range ticketsResponse.Hashes {
@@ -226,7 +227,7 @@ func getNewTickets(assignedTickets map[string]bool) []string {
 			newTickets = append(newTickets, ticketHash)
 		}
 	}
-	return newTickets
+	return newTickets, removedTickets
 }
 
 func parsePercentage(percentageStr string) float64 {
