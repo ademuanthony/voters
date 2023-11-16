@@ -24,11 +24,11 @@ type TicketsResponse struct {
 
 const dcrctl = "/home/user/code/dcrctl/dcrctl"
 
-// const dcrctl = "dcrctl"
+// const dcrctl = "./dcrctl.sh"
 
 var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
-
 // var dcrctlArgs = []string{"--wallet", "--testnet"}
+// var dcrctlArgs = []string{}
 
 const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
@@ -71,7 +71,6 @@ func main() {
 		} else {
 			fmt.Printf("***** ROUND %d *****  politeiakey %s\n", round, tspendOrPolicyKey)
 		}
-		round++
 		fmt.Printf(
 			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n\n",
 			formatPercentage(yesZone),
@@ -86,23 +85,25 @@ func main() {
 		startGetTicketTime := time.Now()
 		fmt.Printf("- get tickets... ")
 		newTickets, removedTickets := getNewTickets(assignedTickets)
-		fmt.Printf("got %d tickets completed in %v.\n", len(newTickets), time.Since(startGetTicketTime))
 
 		if round > 1 {
-			fmt.Println("checking for tickets removed...")
-			
+			fmt.Printf("got %d new tickets, %d removed tickets; completed in %v.\n", len(newTickets), len(removedTickets), time.Since(startGetTicketTime))
+		} else {
+			fmt.Printf("got %d tickets completed in %v.\n", len(newTickets), time.Since(startGetTicketTime))
+		}
 
+		if round > 1 {
 			if len(removedTickets) > 0 {
-				votesTable := table.New("Count", "Ticket")
+				fmt.Println("removed tickets")
+				fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
 				for i, hash := range removedTickets {
-					votesTable.AddRow(i+1, hash)
+					determinant, policy := calculatePolicy(i+1, hash, salt, yesZone, noZone, verbose)
+					fmt.Printf("%d \t%s \t%s \t%s \t%s\n", i+1, hash, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
 				}
-				votesTable.Print()
-				fmt.Println()
-			} else {
-				fmt.Println("nothing found")
 			}
 		}
+
+		round++
 
 		if len(newTickets) > 0 {
 			for _, ticketHash := range newTickets {
@@ -126,18 +127,24 @@ func main() {
 		ticketPolicies := make(map[string]string)
 
 		if len(newTickets) > 0 {
-			verbosePolicyTable := table.New("Count", "Ticket", "Rand", "Choice", "Symbol")
+			if verbose {
+				fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
+			}
 			for i, ticketHash := range newTickets {
-				policy := calculatePolicy(i+1, verbosePolicyTable, ticketHash, salt, yesZone, noZone, verbose)
+				determinant, policy := calculatePolicy(i+1, ticketHash, salt, yesZone, noZone, verbose)
 				ticketPolicies[ticketHash] = policy
 				policyCounts[policy]++
 
 				setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
+
+				if verbose {
+					fmt.Printf("%d \t%s \t%s \t%s \t%s\n", i+1, ticketHash, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
+				} else {
+					fmt.Print(formatPolicy(policy, verbose))
+				}
+
 			}
 
-			if verbose {
-				verbosePolicyTable.Print()
-			}
 		} else {
 			fmt.Println("No new ticket(s) found")
 		}
@@ -171,7 +178,7 @@ func main() {
 		}
 
 		nextRun := time.Now().Add(repeatInterval)
-		fmt.Printf("- sleeping for %v, next run at %v...\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
+		fmt.Printf("- sleeping for %v, next run at %v...\n\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
 
 		time.Sleep(repeatInterval)
 	}
@@ -220,7 +227,6 @@ func getNewTickets(assignedTickets map[string]bool) ([]string, []string) {
 
 	previousTickts = ticketsResponse.Hashes
 
-
 	var newTickets []string
 	for _, ticketHash := range ticketsResponse.Hashes {
 		if !assignedTickets[ticketHash] {
@@ -263,7 +269,7 @@ func formatPolicy(policy string, verbose bool) string {
 	return policy
 }
 
-func calculatePolicy(no int, policyTable table.Table, ticketHash, salt string, yesZone, noZone float64, verbose bool) string {
+func calculatePolicy(no int, ticketHash, salt string, yesZone, noZone float64, verbose bool) (float64, string) {
 	data := ticketHash + salt
 	hashed := sha256.Sum256([]byte(data))
 	seed := new(big.Int).SetBytes(hashed[:]).Uint64()
@@ -280,14 +286,7 @@ func calculatePolicy(no int, policyTable table.Table, ticketHash, salt string, y
 		policy = "abstain"
 	}
 
-	hashPrnt := ticketHash
-	if !verbose {
-		fmt.Print(formatPolicy(policy, verbose))
-	}
-
-	policyTable.AddRow(no, hashPrnt, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
-
-	return policy
+	return determinant, policy
 }
 
 func setTspendPolicy(tspendOrPolicyKey, ticketHash, policy string) {
