@@ -55,10 +55,9 @@ if [ "$1" == "gettickets" ]; then
         "DsQz7MEq1wbgeDZ6WKsaw23affdfr8Ckwqe",
         "DsYYaFKe3nxWJweGmCgfvb4rhde2xVe43ed",
         "Dsa6UzWBzoCJXE9Btwddsw3Xvcfd4Rfkdcf",
-        "DsQz7MEq1wbgeDZ6WKLddsdasnbv58CkVHa",
-        "DsQz7MEq1wbgeDZ6WK32wxcaGsw3c8CkVHe",
-        "DsYYaFKe3nxWJweGmCdsw3gr3gfcdVePACe",
-        "Dsa6UzWBzoCJXE9Btwdfgvrdef54dR9yTsf"
+        "DsQz7MEq1wbgeDZ6WK32wxcaGsw3c8CkVHa",
+        "DsYYaFKe3nxWJweGmCdsw3gr3gfcdVePACa",
+        "Dsa6UzWBzoCJXE9Btwdfgvrdef54dR9yTsa"
     ]
 }'
 elif [ "$1" == "settspendpolicy" ]; then

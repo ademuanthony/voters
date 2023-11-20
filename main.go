@@ -22,13 +22,13 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-const dcrctl = "/home/user/code/dcrctl/dcrctl"
+// const dcrctl = "/home/user/code/dcrctl/dcrctl"
 
-// const dcrctl = "./dcrctl.sh"
+const dcrctl = "./dcrctl.sh"
 
-var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
 // var dcrctlArgs = []string{"--wallet", "--testnet"}
-// var dcrctlArgs = []string{}
+var dcrctlArgs = []string{}
 
 const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
@@ -38,9 +38,10 @@ const (
 )
 
 var (
-	totalYes = 0
-	totalNo = 0
+	totalYes     = 0
+	totalNo      = 0
 	totalAbstain = 0
+	totalTickets = 0
 )
 
 func main() {
@@ -73,12 +74,12 @@ func main() {
 
 	for {
 		if len(tspendOrPolicyKey) == 32 {
-			fmt.Printf("***** ROUND %d *****  tspend %s\n", round, tspendOrPolicyKey)
+			fmt.Printf("*** loop %d ***  tspend %s\n", round, tspendOrPolicyKey)
 		} else {
-			fmt.Printf("***** ROUND %d *****  politeiakey %s\n", round, tspendOrPolicyKey)
+			fmt.Printf("*** loop %d ***  politeiakey %s\n", round, tspendOrPolicyKey)
 		}
 		fmt.Printf(
-			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n\n",
+			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
 			formatPercentage(yesZone),
 			formatPercentage(noZone),
 			formatPercentage(absZone),
@@ -93,9 +94,9 @@ func main() {
 		newTickets, removedTickets := getNewTickets(assignedTickets)
 
 		if round > 1 {
-			fmt.Printf("got %d new tickets, %d removed tickets; completed in %v.\n", len(newTickets), len(removedTickets), time.Since(startGetTicketTime))
+			fmt.Printf("got %d new tickets  %d removed tickets  completed in %s.\n", len(newTickets), len(removedTickets), formatDuration(time.Since(startGetTicketTime)))
 		} else {
-			fmt.Printf("got %d tickets completed in %v.\n", len(newTickets), time.Since(startGetTicketTime))
+			fmt.Printf("got %d tickets completed in %s.\n", len(newTickets), formatDuration(time.Since(startGetTicketTime)))
 		}
 
 		if round > 1 {
@@ -111,45 +112,42 @@ func main() {
 
 		round++
 
-		if len(newTickets) > 0 {
-			for _, ticketHash := range newTickets {
-				assignedTickets[ticketHash] = true
-			}
-		} else {
+		fmt.Println()
+
+		if len(newTickets) == 0 {
 			time.Sleep(repeatInterval)
 			continue
 		}
 
-		totalTickets := len(newTickets)
+		for _, ticketHash := range newTickets {
+			assignedTickets[ticketHash] = true
+		}
 
-		fmt.Println()
-		fmt.Printf("Making random decisions for %d tickets\n", totalTickets)
+		newTicketsCount := len(newTickets)
+		totalTickets += newTicketsCount
+
+		fmt.Printf("Making random decisions for %d tickets\n", newTicketsCount)
 
 		policyCounts := make(map[string]int)
 		ticketPolicies := make(map[string]string)
 
-		if len(newTickets) > 0 {
-			fmt.Println("new tickets")
+		fmt.Println("new tickets")
+		if verbose {
+			fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
+		}
+		for i, ticketHash := range newTickets {
+			determinant, policy := calculatePolicy(i+1, ticketHash, salt, yesZone, noZone, verbose)
+			ticketPolicies[ticketHash] = policy
+			policyCounts[policy]++
+
+			setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
+
 			if verbose {
-				fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
-			}
-			for i, ticketHash := range newTickets {
-				determinant, policy := calculatePolicy(i+1, ticketHash, salt, yesZone, noZone, verbose)
-				ticketPolicies[ticketHash] = policy
-				policyCounts[policy]++
-
-				setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
-
-				if verbose {
-					fmt.Printf("%d \t%s \t%s \t%s \t%s\n", i+1, ticketHash, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
-				} else {
-					fmt.Print(formatPolicy(policy, verbose))
-				}
-
+				fmt.Printf("%d \t%s \t%s \t%s \t%s\n", i+1, ticketHash, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
+			} else {
+				fmt.Print(formatPolicy(policy, verbose))
 			}
 
-		} else {
-			fmt.Println("No new ticket(s) found")
 		}
 
 		totalYes += policyCounts["yes"]
@@ -157,28 +155,24 @@ func main() {
 		totalAbstain += policyCounts["abstain"]
 
 		summaryTable := table.New("", "yes", "no", "abs", "total")
-		if totalTickets > 0 {
-			yesPercent := float64(100*totalYes) / float64(totalTickets)
-			noPercent := float64(100*totalNo) / float64(totalTickets)
-			absPercentage := 100 - (yesPercent + noPercent)
+		yesPercent := float64(100*totalYes) / float64(totalTickets)
+		noPercent := float64(100*totalNo) / float64(totalTickets)
+		absPercentage := 100 - (yesPercent + noPercent)
 
-			summaryTable.AddRow("votes", totalYes, totalNo, totalAbstain, totalTickets)
-			summaryTable.AddRow("perc", formatPercentage(yesPercent)+"%", formatPercentage(noPercent)+"%",
-				formatPercentage(absPercentage)+"%")
-			summaryTable.AddRow("targ", formatPercentage(yesZone)+"%", formatPercentage(noZone)+"%",
-				formatPercentage(absZone)+"%")
-			summaryTable.AddRow(
-				"diff",
-				formatPercentage(math.Abs(yesPercent-yesZone))+"%",
-				formatPercentage(math.Abs(noPercent-noZone))+"%",
-				formatPercentage(math.Abs(absPercentage-absZone))+"%",
-			)
-		}
+		summaryTable.AddRow("votes", totalYes, totalNo, totalAbstain, totalTickets)
+		summaryTable.AddRow("perc", formatPercentage(yesPercent)+"%", formatPercentage(noPercent)+"%",
+			formatPercentage(absPercentage)+"%")
+		summaryTable.AddRow("targ", formatPercentage(yesZone)+"%", formatPercentage(noZone)+"%",
+			formatPercentage(absZone)+"%")
+		summaryTable.AddRow(
+			"diff",
+			formatPercentage(math.Abs(yesPercent-yesZone))+"%",
+			formatPercentage(math.Abs(noPercent-noZone))+"%",
+			formatPercentage(math.Abs(absPercentage-absZone))+"%",
+		)
 
-		if totalTickets > 0 {
-			fmt.Println()
-			summaryTable.Print()
-		}
+		fmt.Println()
+		summaryTable.Print()
 
 		nextRun := time.Now().Add(repeatInterval)
 		fmt.Printf("- sleeping for %v, next run at %v...\n\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
@@ -270,6 +264,32 @@ func formatPolicy(policy string, verbose bool) string {
 
 	}
 	return policy
+}
+
+func formatDuration(duration time.Duration) string {
+	units := []struct {
+		unit  string
+		value int64
+	}{
+		{"h", int64(time.Hour)},
+		{"m", int64(time.Minute)},
+		{"s", int64(time.Second)},
+		{"ms", int64(time.Millisecond)},
+	}
+
+	formattedDuration := ""
+
+	for _, unit := range units {
+		if duration >= time.Duration(unit.value) {
+			count := int64(duration / time.Duration(unit.value))
+
+			formattedDuration += fmt.Sprintf("%d%s", count, unit.unit)
+
+			duration -= time.Duration(count) * time.Duration(unit.value)
+		}
+	}
+
+	return formattedDuration
 }
 
 func calculatePolicy(no int, ticketHash, salt string, yesZone, noZone float64, verbose bool) (float64, string) {
