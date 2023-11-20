@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/rodaine/table"
 )
 
 type TicketsResponse struct {
@@ -147,32 +145,29 @@ func main() {
 			} else {
 				fmt.Print(formatPolicy(policy, verbose))
 			}
-
 		}
 
 		totalYes += policyCounts["yes"]
 		totalNo += policyCounts["no"]
 		totalAbstain += policyCounts["abstain"]
 
-		summaryTable := table.New("", "yes", "no", "abs", "total")
+		fmt.Println("\tyes \tno \tabs \ttotal")
 		yesPercent := float64(100*totalYes) / float64(totalTickets)
 		noPercent := float64(100*totalNo) / float64(totalTickets)
 		absPercentage := 100 - (yesPercent + noPercent)
 
-		summaryTable.AddRow("votes", totalYes, totalNo, totalAbstain, totalTickets)
-		summaryTable.AddRow("perc", formatPercentage(yesPercent)+"%", formatPercentage(noPercent)+"%",
+		fmt.Printf("votes \t%d \t%d \t%d \t%d\n", totalYes, totalNo, totalAbstain, totalTickets)
+		fmt.Printf("perc \t%s \t%s \t%s\n", formatPercentage(yesPercent)+"%", formatPercentage(noPercent)+"%",
 			formatPercentage(absPercentage)+"%")
-		summaryTable.AddRow("targ", formatPercentage(yesZone)+"%", formatPercentage(noZone)+"%",
+
+		fmt.Printf("targ \t%s \t%s \t%s\n", formatPercentage(yesZone)+"%", formatPercentage(noZone)+"%",
 			formatPercentage(absZone)+"%")
-		summaryTable.AddRow(
-			"diff",
+		fmt.Printf("diff \t%s \t%s \t%s\n",
 			formatPercentage(math.Abs(yesPercent-yesZone))+"%",
 			formatPercentage(math.Abs(noPercent-noZone))+"%",
-			formatPercentage(math.Abs(absPercentage-absZone))+"%",
-		)
+			formatPercentage(math.Abs(absPercentage-absZone))+"%")
 
 		fmt.Println()
-		summaryTable.Print()
 
 		nextRun := time.Now().Add(repeatInterval)
 		fmt.Printf("- sleeping for %v, next run at %v...\n\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
