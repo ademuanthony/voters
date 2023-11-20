@@ -34,7 +34,13 @@ const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
 	tspendOrPolicyKey = "03f6e7041f1cf51ee10e0a01cd2b0385ce3cd9debaabb2296f7e9dee9329da946c"
 	verbose           = true
-	repeatInterval    = 1280 * time.Minute
+	repeatInterval    = 1 * time.Minute
+)
+
+var (
+	totalYes = 0
+	totalNo = 0
+	totalAbstain = 0
 )
 
 func main() {
@@ -115,18 +121,15 @@ func main() {
 		}
 
 		totalTickets := len(newTickets)
-		var totalYes, totalNo, totalAbstain int
 
 		fmt.Println()
-		fmt.Printf("Making random decisions based on  yes 0-%0.f  no %0.f-%0.f  abstain %0.f-100 for %d tickets\n", yesZone, yesZone,
-			yesZone+noZone, yesZone+noZone, totalTickets)
-
-		fmt.Println()
+		fmt.Printf("Making random decisions for %d tickets\n", totalTickets)
 
 		policyCounts := make(map[string]int)
 		ticketPolicies := make(map[string]string)
 
 		if len(newTickets) > 0 {
+			fmt.Println("new tickets")
 			if verbose {
 				fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
 			}
