@@ -20,12 +20,12 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-// const dcrctl = "/home/user/code/dcrctl/dcrctl"
+const dcrctl = "/home/user/code/dcrctl/dcrctl"
 
-const dcrctl = "dcrctl"
+// const dcrctl = "./dcrctl.sh"
 
-// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
-var dcrctlArgs = []string{"--wallet", "--testnet"}
+var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+// var dcrctlArgs = []string{"--wallet", "--testnet"}
 // var dcrctlArgs = []string{}
 
 const (
@@ -121,10 +121,9 @@ func main() {
 
 		round++
 
-		fmt.Println()
-
 		if len(newTickets) == 0 {
 			time.Sleep(repeatInterval)
+			fmt.Println()
 			continue
 		}
 
@@ -178,10 +177,9 @@ func main() {
 			formatPercentage(math.Abs(noPercent-noZone))+"%",
 			formatPercentage(math.Abs(absPercentage-absZone))+"%")
 
-		fmt.Println()
-
 		nextRun := time.Now().Add(repeatInterval)
-		fmt.Printf("- sleeping for %v, next run at %v...\n\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
+		fmt.Printf("- sleeping for %v, next run at %v...\n", repeatInterval, nextRun.Format("2006-01-02 15h-04m-05s"))
+		fmt.Println()
 
 		time.Sleep(repeatInterval)
 	}

@@ -46,7 +46,7 @@ if [ "$1" == "gettickets" ]; then
         "DsQz7MEq1wbgeDZ6WK23edfaGdv4e8CkVHe",
         "DsYYaFKe3nxWJweGmCaV4e1r2r5vcVePACe",
         "Dsa6UzWBzoCJXE9Btwdfse34d3azxR9yTsf",
-        "DsQz7MEq1wbgeDZ6WK43dfcaGdbgr8CkVfd",
+        "DsQz7MEq1wbgeDZ6WK43dfcaGdbgr8CkVf0",
         "DsQz7MEq1wbgeDZ6WKsaw23aGfdfr8Ckwqe",
         "DsYYaFKe3nxWJweGmCgfvb4r2de2xVe43ed",
         "Dsa6UzWBzoCJXE9Btwddsw3Xdcfd4Rfkdcf",
@@ -57,8 +57,7 @@ if [ "$1" == "gettickets" ]; then
         "Dsa6UzWBzoCJXE9Btwddsw3Xvcfd4Rfkdcf",
         "DsQz7MEq1wbgeDZ6WKLddsdasnbv58CkVHa",
         "DsQz7MEq1wbgeDZ6WK32wxcaGsw3c8CkVHe",
-        "DsYYaFKe3nxWJweGmCdsw3gr3gfcdVePACe",
-        "Dsa6UzWBzoCJXE9Btwdfgvrdef54dR9yTsf"
+        "DsYYaFKe3nxWJweGmCdsw3gr3gfcdVePACe"
     ]
 }'
 elif [ "$1" == "settspendpolicy" ]; then
@@ -66,7 +65,7 @@ echo "settspendpolicy called"
     # echo "Treasury spend policy set for ticket $2: $3"
 elif [ "$1" == "getrawmempool" ]; then
     echo '[
-        "5c76aa623f8077a075167df35583d652572a62a4e260c1f4085b4edbaa9a5d10"
+        "5c76aa623f8077a075167df35583d652572a62a4e260c1f4085b4edbaa9a5d18"
     ]'
 else
     echo "Unrecognized command: $1"
