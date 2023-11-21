@@ -76,6 +76,17 @@ func main() {
 		} else {
 			fmt.Printf("*** loop %d ***  politeiakey %s\n", round, tspendOrPolicyKey)
 		}
+
+		tspendInMempool, err := getTspendInMempool()
+		if err != nil {
+			fmt.Println("error in getting tspend from mempool", err.Error())
+		} else if len(tspendInMempool) > 0 {
+			fmt.Printf("- found %d new tspend in mempool\n", len(tspendInMempool))
+			for _, hash := range tspendInMempool {
+				fmt.Println(hash)
+			}
+		}
+
 		fmt.Printf(
 			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
 			formatPercentage(yesZone),
@@ -226,6 +237,33 @@ func getNewTickets(assignedTickets map[string]bool) ([]string, []string) {
 		}
 	}
 	return newTickets, removedTickets
+}
+
+var seenMempoolTspend = make(map[string]bool)
+func getTspendInMempool() ([]string, error) {
+	cmd := exec.Command(dcrctl, "getrawmempool", "false", "tspend")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var hashStrings []string
+	err = json.Unmarshal(output, &hashStrings)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	for _, hash := range hashStrings {
+		if seenMempoolTspend[hash] {
+			continue
+		}
+
+		seenMempoolTspend[hash] = true
+		result = append(result,  hash)
+	}
+
+	return result, nil
 }
 
 func parsePercentage(percentageStr string) float64 {

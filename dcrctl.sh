@@ -64,6 +64,10 @@ if [ "$1" == "gettickets" ]; then
 elif [ "$1" == "settspendpolicy" ]; then
 echo "settspendpolicy called"
     # echo "Treasury spend policy set for ticket $2: $3"
+elif [ "$1" == "getrawmempool" ]; then
+    echo '[
+        "5c76aa623f8077a075167df35583d652572a62a4e260c1f4085b4edbaa9a5d10"
+    ]'
 else
     echo "Unrecognized command: $1"
 fi
