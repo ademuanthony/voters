@@ -20,12 +20,12 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-const dcrctl = "/home/user/code/dcrctl/dcrctl"
+// const dcrctl = "/home/user/code/dcrctl/dcrctl"
 
-// const dcrctl = "./dcrctl.sh"
+const dcrctl = "dcrctl"
 
-var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
-// var dcrctlArgs = []string{"--wallet", "--testnet"}
+// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+var dcrctlArgs = []string{"--wallet", "--testnet"}
 // var dcrctlArgs = []string{}
 
 const (
@@ -240,8 +240,11 @@ func getNewTickets(assignedTickets map[string]bool) ([]string, []string) {
 }
 
 var seenMempoolTspend = make(map[string]bool)
+
 func getTspendInMempool() ([]string, error) {
-	cmd := exec.Command(dcrctl, "getrawmempool", "false", "tspend")
+	args := append(dcrctlArgs, "getrawmempool", "false", "tspend")
+	cmd := exec.Command(dcrctl, args...)
+
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
