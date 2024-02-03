@@ -20,13 +20,20 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-const dcrctl = "/home/user/code/dcrctl/dcrctl"
+// const dcrctl = "/home/user/code/dcrctl/dcrctl"
+const dcrctl = "dcrctl"
 
 // const dcrctl = "./dcrctl.sh"
 
 var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+
 // var dcrctlArgs = []string{"--wallet", "--testnet"}
 // var dcrctlArgs = []string{}
+
+var (
+	yesZone float64 = 50
+	noZone  float64 = 30
+)
 
 const (
 	salt              = "DsYYaFKe3nxWJweGmCaVzPqr2qCa7Ve43ed"
@@ -47,12 +54,6 @@ func main() {
 
 	fmt.Printf("- Treasury Voter v1.0.0 (2023-11-01), will run every %v.\n\n", repeatInterval)
 
-	if len(os.Args) != 3 {
-		fmt.Println("Invalid number of arguments. Expected 2 but got ", len(os.Args))
-		fmt.Println("Usage: ./voters <Yes Percentage> <No Percentage>")
-		os.Exit(1)
-	}
-
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
@@ -62,8 +63,6 @@ func main() {
 		os.Exit(0)
 	}()
 
-	yesZone := parsePercentage(os.Args[1])
-	noZone := parsePercentage(os.Args[2])
 	absZone := 100 - yesZone - noZone
 
 	assignedTickets := make(map[string]bool)
@@ -121,45 +120,41 @@ func main() {
 
 		round++
 
-		if len(newTickets) == 0 {
-			time.Sleep(repeatInterval)
-			fmt.Println()
-			continue
-		}
-
-		for _, ticketHash := range newTickets {
-			assignedTickets[ticketHash] = true
-		}
-
-		newTicketsCount := len(newTickets)
-		totalTickets += newTicketsCount
-
-		fmt.Printf("Making random decisions for %d tickets\n", newTicketsCount)
-
-		policyCounts := make(map[string]int)
-		ticketPolicies := make(map[string]string)
-
-		fmt.Println("new tickets")
-		if verbose {
-			fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
-		}
-		for i, ticketHash := range newTickets {
-			determinant, policy := calculatePolicy(i+1, ticketHash, salt, yesZone, noZone, verbose)
-			ticketPolicies[ticketHash] = policy
-			policyCounts[policy]++
-
-			setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
-
-			if verbose {
-				fmt.Printf("%d \t%s \t%s \t%s \t%s\n", i+1, ticketHash, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
-			} else {
-				fmt.Print(formatPolicy(policy, verbose))
+		if len(newTickets) > 0 {
+			for _, ticketHash := range newTickets {
+				assignedTickets[ticketHash] = true
 			}
-		}
 
-		totalYes += policyCounts["yes"]
-		totalNo += policyCounts["no"]
-		totalAbstain += policyCounts["abstain"]
+			newTicketsCount := len(newTickets)
+			totalTickets += newTicketsCount
+
+			fmt.Printf("Making random decisions for %d tickets\n", newTicketsCount)
+
+			policyCounts := make(map[string]int)
+			ticketPolicies := make(map[string]string)
+
+			fmt.Println("new tickets")
+			if verbose {
+				fmt.Println("Count \tTicket \t\t\t\t\tRand \tChoice \tSymbol")
+			}
+			for i, ticketHash := range newTickets {
+				determinant, policy := calculatePolicy(i+1, ticketHash, salt, yesZone, noZone, verbose)
+				ticketPolicies[ticketHash] = policy
+				policyCounts[policy]++
+
+				setTspendPolicy(tspendOrPolicyKey, ticketHash, policy)
+
+				if verbose {
+					fmt.Printf("%d \t%s \t%s \t%s \t%s\n", i+1, ticketHash, formatPercentage(determinant), formatPolicy(policy, verbose), formatPolicy(policy, false))
+				} else {
+					fmt.Print(formatPolicy(policy, verbose))
+				}
+			}
+
+			totalYes += policyCounts["yes"]
+			totalNo += policyCounts["no"]
+			totalAbstain += policyCounts["abstain"]
+		}
 
 		fmt.Println("\tyes \tno \tabs \ttotal")
 		yesPercent := float64(100*totalYes) / float64(totalTickets)
@@ -261,7 +256,7 @@ func getTspendInMempool() ([]string, error) {
 		}
 
 		seenMempoolTspend[hash] = true
-		result = append(result,  hash)
+		result = append(result, hash)
 	}
 
 	return result, nil
