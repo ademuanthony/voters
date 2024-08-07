@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -81,6 +82,23 @@ func main() {
 
 	absZone := 100 - yesZone - noZone
 
+	fmt.Printf(
+		"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
+		formatPercentage(yesZone),
+		formatPercentage(noZone),
+		formatPercentage(absZone),
+		formatPercentage(yesZone),
+		formatPercentage(yesZone),
+		formatPercentage(yesZone+noZone),
+		formatPercentage(yesZone+noZone),
+	)
+
+	shouldContinue := getCliInput("Do you want to continue (y = yes)?")
+	if (strings.ToLower(shouldContinue) != "y" && shouldContinue != "yes") {
+		fmt.Println("Closing...")
+		return
+	}
+
 	assignedTickets := make(map[string]bool)
 
 	round := 1
@@ -102,16 +120,18 @@ func main() {
 			}
 		}
 
-		fmt.Printf(
-			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
-			formatPercentage(yesZone),
-			formatPercentage(noZone),
-			formatPercentage(absZone),
-			formatPercentage(yesZone),
-			formatPercentage(yesZone),
-			formatPercentage(yesZone+noZone),
-			formatPercentage(yesZone+noZone),
-		)
+		if round > 1 {
+			fmt.Printf(
+				"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
+				formatPercentage(yesZone),
+				formatPercentage(noZone),
+				formatPercentage(absZone),
+				formatPercentage(yesZone),
+				formatPercentage(yesZone),
+				formatPercentage(yesZone+noZone),
+				formatPercentage(yesZone+noZone),
+			)
+		}
 
 		startGetTicketTime := time.Now()
 		fmt.Printf("- get tickets... ")
