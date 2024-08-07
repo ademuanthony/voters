@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -22,6 +21,7 @@ type TicketsResponse struct {
 }
 
 const dcrctl = "/home/user/code/dcrctl/dcrctl"
+
 // const dcrctl = "dcrctl"
 
 // const dcrctl = "./dcrctl.sh"
@@ -32,8 +32,8 @@ var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--walle
 // var dcrctlArgs = []string{}
 
 var (
-	yesZone float64
-	noZone  float64
+	yesZone float64 = 60
+	noZone  float64 = 40
 )
 
 const (
@@ -64,40 +64,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	var err error
-
-	yesZoneInput := getCliInput("Enter yes zone (for computing the number of yes votes):")
-	yesZone, err = strconv.ParseFloat(yesZoneInput, 64)
-	if err != nil {
-		fmt.Println("Please enter a valid number for yes zone")
-		return
-	}
-
-	noZoneInput := getCliInput("Enter no zone (for computing the number of no votes):")
-	noZone, err = strconv.ParseFloat(noZoneInput, 64)
-	if err != nil {
-		fmt.Println("Please enter a valid number for no zone")
-		return
-	}
-
 	absZone := 100 - yesZone - noZone
-
-	fmt.Printf(
-		"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
-		formatPercentage(yesZone),
-		formatPercentage(noZone),
-		formatPercentage(absZone),
-		formatPercentage(yesZone),
-		formatPercentage(yesZone),
-		formatPercentage(yesZone+noZone),
-		formatPercentage(yesZone+noZone),
-	)
-
-	shouldContinue := getCliInput("Do you want to continue (y = yes)?")
-	if (strings.ToLower(shouldContinue) != "y" && shouldContinue != "yes") {
-		fmt.Println("Closing...")
-		return
-	}
 
 	assignedTickets := make(map[string]bool)
 
@@ -120,18 +87,18 @@ func main() {
 			}
 		}
 
-		if round > 1 {
-			fmt.Printf(
-				"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
-				formatPercentage(yesZone),
-				formatPercentage(noZone),
-				formatPercentage(absZone),
-				formatPercentage(yesZone),
-				formatPercentage(yesZone),
-				formatPercentage(yesZone+noZone),
-				formatPercentage(yesZone+noZone),
-			)
-		}
+		fmt.Printf(
+			"- targets: yes %s%%  no %s%%  abstain %s%%, randzones: yes 0-%s  no %s-%s  abstain %s-100\n",
+			formatPercentage(yesZone),
+			formatPercentage(noZone),
+			formatPercentage(absZone),
+			formatPercentage(yesZone),
+			formatPercentage(yesZone),
+			formatPercentage(yesZone+noZone),
+			formatPercentage(yesZone+noZone),
+		)
+
+		time.Sleep(10 * time.Second)
 
 		startGetTicketTime := time.Now()
 		fmt.Printf("- get tickets... ")
@@ -214,15 +181,6 @@ func main() {
 
 		time.Sleep(repeatInterval)
 	}
-}
-
-func getCliInput(prompt string) (input string) {
-	fmt.Println(prompt)
-	_, err := fmt.Scan(&input)
-	if err != nil {
-		fmt.Println("error in reading input", err)
-	}
-	return
 }
 
 func getTickets() (*TicketsResponse, error) {
