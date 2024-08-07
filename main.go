@@ -20,15 +20,15 @@ type TicketsResponse struct {
 	Hashes []string `json:"hashes"`
 }
 
-// const dcrctl = "/home/user/code/dcrctl/dcrctl"
+const dcrctl = "/home/user/code/dcrctl/dcrctl"
 // const dcrctl = "dcrctl"
 
-const dcrctl = "./dcrctl.sh"
+// const dcrctl = "./dcrctl.sh"
 
-// var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
+var dcrctlArgs = []string{"--configfile=/home/user/.dcrctl/voter.conf", "--wallet"}
 
 // var dcrctlArgs = []string{"--wallet", "--testnet"}
-var dcrctlArgs = []string{}
+// var dcrctlArgs = []string{}
 
 var (
 	yesZone float64
